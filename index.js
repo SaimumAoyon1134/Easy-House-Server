@@ -1,23 +1,22 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { MongoClient, ServerApiVersion } from "mongodb";
+import { MongoClient, ServerApiVersion, ObjectId } from "mongodb";
 
-// Load environment variables
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+
 app.use(cors({
-  origin: "http://localhost:5174", // frontend origin
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  origin: "http://localhost:5174", 
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
 app.use(express.json());
 
-// MongoDB setup
+
 const uri = process.env.MONGO_URI;
 const client = new MongoClient(uri, {
   serverApi: {
@@ -32,16 +31,17 @@ async function run() {
     await client.connect();
     const db = client.db("PlayPulseDB");
     const myColl = db.collection("EasyHomeDb");
-    console.log("✅ MongoDB connected successfully");
+    const myCollBookings =db.collection("Bookings")
+    console.log("MongoDB connected successfully");
 
-    // -------------------- ROUTES --------------------
+ 
 
-    // Root route
+
     app.get("/", (req, res) => {
       res.send("🚀 Welcome to EasyHome Backend API!");
     });
 
-    // POST: Add service
+
     app.post("/services", async (req, res) => {
       try {
         const data = req.body;
@@ -52,30 +52,89 @@ async function run() {
           insertedId: result.insertedId,
         });
       } catch (error) {
-        console.error("❌ Error adding service:", error);
+        console.error("Error adding service:", error);
         res.status(500).json({ message: "Error adding service" });
       }
     });
 
-    // GET: Fetch all services (optional)
+
     app.get("/services", async (req, res) => {
       try {
         const services = await myColl.find().toArray();
         res.status(200).json(services);
       } catch (error) {
-        console.error("❌ Error fetching services:", error);
+        console.error(" Error fetching services:", error);
         res.status(500).json({ message: "Error fetching services" });
       }
     });
 
+
+app.patch("/services/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedData = req.body;
+
+    const result = await myColl.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updatedData }
+    );
+
+    if (result.matchedCount === 0)
+      return res.status(404).json({ message: "Service not found" });
+
+    res.json({ message: "Service updated" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to update service" });
+  }
+});
+
+
+app.delete("/services/:id", async (req, res) => {
+    console.log("first")
+  try {
+    const { id } = req.params;
+    const result = await myColl.deleteOne({ _id: new ObjectId(id) });
+
+    if (result.deletedCount === 0) return res.status(404).json({ message: "Service not found" });
+
+    res.json({ message: "Service deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to delete service" });
+  }
+});
+app.post("/bookings", async (req, res) => {
+  try {
+    const booking = req.body;
+    const result = await myCollBookings.insertOne(booking);
+    res.status(201).json({ success: true, insertedId: result.insertedId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to create booking" });
+  }
+});
+
+app.get("/bookings", async (req, res) => {
+  try {
+    const userEmail = req.query.userEmail;
+    if (!userEmail) return res.status(400).json({ message: "User email is required" });
+
+    const userBookings = await myCollBookings.find({ userEmail }).toArray();
+    res.status(200).json(userBookings);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch bookings" });
+  }
+});
   } catch (error) {
-    console.error("❌ MongoDB connection failed:", error);
+    console.error(" MongoDB connection failed:", error);
   }
 }
 
 run().catch(console.dir);
 
-// -------------------- SERVER --------------------
+
 app.listen(PORT, () => {
   console.log(`✅ Server running at: http://localhost:${PORT}`);
 });
