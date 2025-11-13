@@ -73,18 +73,20 @@ async function run() {
   }
 });
 
-    app.get("/services/:id", async (req, res) => {
-      try {
-        const { id } = req.params;
-        const service = await myColl.findOne({ _id: new ObjectId(id) });
-        if (!service) return res.status(404).json({ message: "Not found" });
-        res.json(service);
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Failed to fetch service" });
-      }
-    });
-
+app.get("/services/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid service ID" });
+    }
+    const service = await myColl.findOne({ _id: new ObjectId(id) });
+    if (!service) return res.status(404).json({ message: "Not found" });
+    res.json(service);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch service" });
+  }
+});
     app.patch("/services/:id", async (req, res) => {
       try {
         const { id } = req.params;
@@ -150,6 +152,33 @@ async function run() {
       await myCollBookings.deleteOne({ _id: new ObjectId(id) });
       res.json({ success: true });
     });
+    
+app.post("/services/:id/review", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userEmail, rating, comment } = req.body;
+
+    const review = { userEmail, rating, comment }; 
+
+    const result = await myColl.updateOne(
+      { _id: new ObjectId(id) },
+      { $push: { reviews: review } }
+    );
+
+    if (result.matchedCount === 0)
+      return res.status(404).json({ message: "Service not found" });
+
+    res.json({ message: "Review added successfully!" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to add review" });
+  }
+});
+
+
+
+
+
   } catch (error) {
     console.error(" MongoDB connection failed:", error);
   }
@@ -158,5 +187,5 @@ async function run() {
 run().catch(console.dir);
 
 app.listen(PORT, () => {
-  console.log(`✅ Server running at: http://localhost:${PORT}`);
+  console.log(`Server running at: http://localhost:${PORT}`);
 });
