@@ -106,7 +106,21 @@ app.get("/services/:id", async (req, res) => {
         res.status(500).json({ message: "Failed to update service" });
       }
     });
+app.get("/myservices", async (req, res) => {
+  const email = req.query.email;
 
+  if (!email) {
+    return res.status(400).json({ error: "Email query parameter is required" });
+  }
+
+  try {
+    const services = await myColl.find({ email: email }).toArray();
+    res.json(services);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
     app.delete("/services/:id", async (req, res) => {
       console.log("first");
       try {
