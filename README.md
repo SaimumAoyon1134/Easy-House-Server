@@ -3,7 +3,7 @@
 Easy Home is a modern web application designed to simplify finding and booking professional home services. Whether you need a plumber, electrician, cleaner, or handyman, Easy Home connects you with verified service providers quickly and efficiently.
 
 ## Live Site
-[Easy Home Live](https://your-live-site-url.com)  
+[Easy Home Live](https://easyhouse-f443f.web.app/)  
 
 ## Key Features
 - **Service Discovery:** Browse and search for a wide range of home and outside services.  

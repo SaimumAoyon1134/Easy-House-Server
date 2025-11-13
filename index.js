@@ -22,11 +22,11 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+
     const db = client.db("PlayPulseDB");
     const myColl = db.collection("EasyHomeDb");
     const myCollBookings = db.collection("Bookings");
-    console.log("MongoDB connected successfully");
+
 
     app.get("/", (req, res) => {
       res.send("🚀 Welcome to EasyHome Backend API!");
