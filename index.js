@@ -8,10 +8,8 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-
 app.use(cors());
 app.use(express.json());
-
 
 const uri = process.env.MONGO_URI;
 const client = new MongoClient(uri, {
@@ -27,16 +25,12 @@ async function run() {
     await client.connect();
     const db = client.db("PlayPulseDB");
     const myColl = db.collection("EasyHomeDb");
-    const myCollBookings =db.collection("Bookings")
+    const myCollBookings = db.collection("Bookings");
     console.log("MongoDB connected successfully");
-
- 
-
 
     app.get("/", (req, res) => {
       res.send("🚀 Welcome to EasyHome Backend API!");
     });
-
 
     app.post("/services", async (req, res) => {
       try {
@@ -53,93 +47,115 @@ async function run() {
       }
     });
 
+  app.get("/services", async (req, res) => {
+  try {
+    const { search, minPrice, maxPrice } = req.query;
+    let filter = {};
 
-    app.get("/services", async (req, res) => {
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: "i" } },
+       
+      ];
+    }
+
+    if (minPrice || maxPrice) {
+      filter.price = {};
+      if (minPrice) filter.price.$gte = Number(minPrice);
+      if (maxPrice) filter.price.$lte = Number(maxPrice);
+    }
+
+    const services = await myColl.find(filter).toArray();
+    res.json(services);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+    app.get("/services/:id", async (req, res) => {
       try {
-        const services = await myColl.find().toArray();
-        res.status(200).json(services);
-      } catch (error) {
-        console.error(" Error fetching services:", error);
-        res.status(500).json({ message: "Error fetching services" });
+        const { id } = req.params;
+        const service = await myColl.findOne({ _id: new ObjectId(id) });
+        if (!service) return res.status(404).json({ message: "Not found" });
+        res.json(service);
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to fetch service" });
       }
     });
 
+    app.patch("/services/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const updatedData = req.body;
 
-app.patch("/services/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updatedData = req.body;
+        const result = await myColl.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updatedData }
+        );
 
-    const result = await myColl.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: updatedData }
-    );
+        if (result.matchedCount === 0)
+          return res.status(404).json({ message: "Service not found" });
 
-    if (result.matchedCount === 0)
-      return res.status(404).json({ message: "Service not found" });
+        res.json({ message: "Service updated" });
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to update service" });
+      }
+    });
 
-    res.json({ message: "Service updated" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to update service" });
-  }
-});
+    app.delete("/services/:id", async (req, res) => {
+      console.log("first");
+      try {
+        const { id } = req.params;
+        const result = await myColl.deleteOne({ _id: new ObjectId(id) });
 
+        if (result.deletedCount === 0)
+          return res.status(404).json({ message: "Service not found" });
 
-app.delete("/services/:id", async (req, res) => {
-    console.log("first")
-  try {
-    const { id } = req.params;
-    const result = await myColl.deleteOne({ _id: new ObjectId(id) });
+        res.json({ message: "Service deleted" });
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to delete service" });
+      }
+    });
+    app.post("/bookings", async (req, res) => {
+      try {
+        const booking = req.body;
+        const result = await myCollBookings.insertOne(booking);
+        res.status(201).json({ success: true, insertedId: result.insertedId });
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to create booking" });
+      }
+    });
 
-    if (result.deletedCount === 0) return res.status(404).json({ message: "Service not found" });
+    app.get("/bookings", async (req, res) => {
+      try {
+        const userEmail = req.query.userEmail;
+        if (!userEmail)
+          return res.status(400).json({ message: "User email is required" });
 
-    res.json({ message: "Service deleted" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to delete service" });
-  }
-});
-app.post("/bookings", async (req, res) => {
-  try {
-    const booking = req.body;
-    const result = await myCollBookings.insertOne(booking);
-    res.status(201).json({ success: true, insertedId: result.insertedId });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to create booking" });
-  }
-});
+        const userBookings = await myCollBookings.find({ userEmail }).toArray();
+        res.status(200).json(userBookings);
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to fetch bookings" });
+      }
+    });
 
-app.get("/bookings", async (req, res) => {
-  try {
-    const userEmail = req.query.userEmail;
-    if (!userEmail) return res.status(400).json({ message: "User email is required" });
-
-    const userBookings = await myCollBookings.find({ userEmail }).toArray();
-    res.status(200).json(userBookings);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to fetch bookings" });
-  }
-});
-
-app.delete("/bookings/:id", async (req, res) => {
-    
-  const { id } = req.params;
-  await myCollBookings.deleteOne({ _id: new ObjectId(id) });
-  res.json({ success: true });
-});
-
-
+    app.delete("/bookings/:id", async (req, res) => {
+      const { id } = req.params;
+      await myCollBookings.deleteOne({ _id: new ObjectId(id) });
+      res.json({ success: true });
+    });
   } catch (error) {
     console.error(" MongoDB connection failed:", error);
   }
 }
 
-
 run().catch(console.dir);
-
 
 app.listen(PORT, () => {
   console.log(`✅ Server running at: http://localhost:${PORT}`);
